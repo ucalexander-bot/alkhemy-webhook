@@ -1,16 +1,23 @@
 from flask import Flask, request, jsonify
+import os
 
 app = Flask(__name__)
 
-@app.route("/", methods=["GET"])
-def home():
-    return "Webhook is live!"
+print("🚀 Flask server started and ready!")
 
-@app.route("/github", methods=["POST"])
-def github_webhook():
-    data = request.get_json()
-    print("Received GitHub webhook:", data)
-    return jsonify({"status": "GitHub webhook received"}), 200
+@app.route("/", methods=["GET", "POST"])
+def home():
+    if request.method == "GET":
+        return "Webhook is live!"
+    elif request.method == "POST":
+        print("📩 POST request received at '/'")
+        try:
+            data = request.get_json()
+            print("✅ Received GitHub webhook data:", data)
+            return jsonify({"status": "GitHub webhook received"}), 200
+        except Exception as e:
+            print("❌ Error parsing JSON from webhook:", str(e))
+            return jsonify({"error": "Failed to parse JSON"}), 400
 
 @app.route("/api/summarize-email", methods=["POST"])
 def summarize_email():
