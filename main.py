@@ -3,21 +3,14 @@ import os
 
 app = Flask(__name__)
 
-print("🚀 Flask server started and ready!")
-
 @app.route("/", methods=["GET", "POST"])
 def home():
     if request.method == "GET":
         return "Webhook is live!"
     elif request.method == "POST":
-        print("📩 POST request received at '/'")
-        try:
-            data = request.get_json()
-            print("✅ Received GitHub webhook data:", data)
-            return jsonify({"status": "GitHub webhook received"}), 200
-        except Exception as e:
-            print("❌ Error parsing JSON from webhook:", str(e))
-            return jsonify({"error": "Failed to parse JSON"}), 400
+        data = request.get_json()
+        print("Received GitHub webhook:", data)
+        return jsonify({"status": "GitHub webhook received"}), 200
 
 @app.route("/api/summarize-email", methods=["POST"])
 def summarize_email():
@@ -26,3 +19,8 @@ def summarize_email():
     body = data.get("body", "")
     summary = f"Summary of email: Subject is '{subject}' and body is approximately {len(body)} characters long."
     return jsonify({"summary": summary})
+
+# 🔧 This line ensures the app binds to the correct port on Render
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
