@@ -21,3 +21,8 @@ async def handle_webhook(request: Request):
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+from fastapi.responses import PlainTextResponse
+
+@app.get("/", response_class=PlainTextResponse)
+def root():
+    return "Alkhemy Webhook Server is running 🧪"
