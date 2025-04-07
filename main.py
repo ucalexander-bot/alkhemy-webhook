@@ -1,31 +1,28 @@
-from flask import Flask, request
-import os
+import json
+from flask import Flask, request, abort
 import hmac
 import hashlib
+import os
 
 app = Flask(__name__)
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET").encode()
 
-WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "supersecretvalue123")  # Same as GitHub
-
-def verify_signature(payload, signature):
-    mac = hmac.new(WEBHOOK_SECRET.encode(), msg=payload, digestmod=hashlib.sha256)
-    expected = "sha256=" + mac.hexdigest()
-    return hmac.compare_digest(expected, signature)
-
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["POST"])
 def webhook():
-    if request.method == "POST":
-        signature = request.headers.get("X-Hub-Signature-256", "")
-        if not verify_signature(request.data, signature):
-            print("⚠️ Invalid signature!")
-            return "Invalid signature", 403
+    # Validate GitHub signature
+    signature = request.headers.get('X-Hub-Signature-256')
+    if not signature:
+        abort(400, "No signature found")
 
-        print("✅ Webhook received!")
-        print(request.json)
-        return "Webhook received!", 200
-    else:
-        return "Hello from Alkhemy Webhook!", 200
+    sha_name, signature = signature.split('=')
+    mac = hmac.new(WEBHOOK_SECRET, msg=request.data, digestmod=hashlib.sha256)
+    if not hmac.compare_digest(mac.hexdigest(), signature):
+        abort(403, "Invalid signature")
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    # Log the payload to a file
+    payload = request.get_json()
+    with open("webhook_log.json", "a") as f:
+        json.dump(payload, f)
+        f.write("\n")  # Add a newline between entries
+
+    return "OK", 200
