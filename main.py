@@ -1,16 +1,23 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, Request
+import uvicorn
 
-app = Flask(__name__)
+app = FastAPI()
 
-@app.route("/", methods=["POST"])
-def webhook():
-    data = request.get_json(silent=True) or request.form or {}
-    print("📬 Webhook received!")
-    print("📦 Payload:", data)
+@app.post("/")
+async def handle_webhook(request: Request):
+    payload = await request.json()
 
-    return jsonify({"status": "received"}), 200
-import os
+    repo = payload.get("repository", {}).get("full_name", "Unknown repo")
+    pusher = payload.get("pusher", {}).get("name", "Someone")
+    commits = payload.get("commits", [])
+
+    commit_messages = [commit.get("message", "No message") for commit in commits]
+    summary = f"📦 Push to {repo} by {pusher}\n"
+    summary += "\n".join([f"- {msg}" for msg in commit_messages])
+
+    print("\n🔔 GitHub Push Summary:\n" + summary + "\n")
+
+    return {"status": "ok"}
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    uvicorn.run("main:app", host="0.0.0.0", port=10000)
