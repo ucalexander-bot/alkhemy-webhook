@@ -1,18 +1,21 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+import json
+import datetime
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
 
 @app.route("/", methods=["POST"])
 def webhook():
-    # Log raw headers and body for debugging
-    print("Webhook received!")
-    print(request.headers)
-    print(request.get_data())
+    data = request.json
+    now = datetime.datetime.now().isoformat()
 
-    # Example response
+    # Print to terminal
+    print(f"\n[Webhook received @ {now}]\n{json.dumps(data, indent=2)}\n")
+
+    # Optional: Save to file
+    with open("webhook_log.json", "a") as f:
+        f.write(f"\n[Webhook received @ {now}]\n")
+        f.write(json.dumps(data, indent=2))
+        f.write("\n")
+
     return jsonify({"status": "received"}), 200
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
