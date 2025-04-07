@@ -1,21 +1,64 @@
 from flask import Flask, request, jsonify
-import json
-from datetime import datetime
+import requests
+import os
+import tempfile
+import email
+from email import policy
 
 app = Flask(__name__)
 
-@app.route("/", methods=["POST"])
+@app.route('/')
+def home():
+    return 'Alkhemy Webhook is Live!'
+
+@app.route('/webhook', methods=['POST'])
 def webhook():
-    payload = request.get_json()
-    timestamp = datetime.utcnow().isoformat()
+    data = request.get_json()
 
-    print("\n✅ Webhook received at", timestamp)
-    print(json.dumps(payload, indent=2))
+    # Check if attachment is included
+    attachment_url = None
+    for key, value in data.items():
+        if isinstance(value, str) and "amazonaws.com" in value and value.endswith(".eml"):
+            attachment_url = value
+            break
 
-    # Optional: write to file
-    with open("webhook_log.json", "a") as f:
-        f.write(f"\n=== {timestamp} ===\n")
-        f.write(json.dumps(payload, indent=2))
-        f.write("\n\n")
+    if not attachment_url:
+        return jsonify({"status": "no attachment found"}), 400
 
-    return jsonify({"status": "received"}), 200
+    # Download the attachment
+    try:
+        response = requests.get(attachment_url)
+        response.raise_for_status()
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".eml") as tmp_file:
+            tmp_file.write(response.content)
+            tmp_path = tmp_file.name
+
+        # Parse the .eml file
+        with open(tmp_path, "rb") as f:
+            msg = email.message_from_binary_file(f, policy=policy.default)
+        
+        subject = msg["subject"]
+        body = ""
+
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/plain":
+                    body = part.get_payload(decode=True).decode()
+                    break
+        else:
+            body = msg.get_payload(decode=True).decode()
+
+        os.remove(tmp_path)  # cleanup temp file
+
+        return jsonify({
+            "status": "success",
+            "subject": subject,
+            "body": body[:500]  # return preview
+        }), 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
